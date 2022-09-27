@@ -5,12 +5,14 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "run": "cross-env node src/parser.js"
+    "run": "cross-env node src/server.js",
+    "build": "cross-env node src/builder.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "cross-env": "^7.0.3",
+    "node-cron": "^3.0.2",
     "node-fetch": "^3.2.10"
   }
 }

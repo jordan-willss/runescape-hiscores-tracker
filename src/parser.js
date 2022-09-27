@@ -11,10 +11,6 @@ const basePath = __dirname.slice(0, __dirname.lastIndexOf("\\"));
 // By default it is the root of the project (__dirname)
 const outputPath = basePath;
 
-const consolidatedArray = []
-
-let fixedTime;
-
 const tableNames = [
     'overall',
     'attack',
@@ -48,68 +44,36 @@ const tableNames = [
 ]
 
 async function getFSWHiscores(table, page) {
-    const response = await fetch(`https://secure.runescape.com/m=hiscore_seasonal/c=EQL69q8CNr8/ranking?category_type=0&table=${table}&time_filter=0&date=${Date.now()}&page=${page}`).then(res => res.text());
+    const response = await fetch(`https://secure.runescape.com/m=hiscore_seasonal/ranking?category_type=0&table=${table}&time_filter=0&date=${Date.now()}&page=${page}`).then(res => res.text()).then(data => data);
 
-    const positionArray = []
-    const nameArray = []
-    const totalLevelArray = []
-    const totalExperienceArray = []
+    try {
+        const pageArray = []
 
-    return new Promise((res, rej) => {
-        try {
-            String(response).replace(/\n/gm, '').match(/<td class="col1([\S\s]*?)<\/td>/gm).forEach(entry => positionArray.push(entry.match(/(?<=<a[\s\S]*?>)[\s\S]*?(?=<\/a>)/g)[0]));
-            String(response).replace(/\n/gm, '').match(/<td class="col2([\S\s]*?)<\/td>/gm).forEach(entry => nameArray.push(entry.match(/(?<=<img[\s\S]*?\/>)[\s\S]*?(?=<\/a>)/g)[0]));
-            String(response).replace(/\n/gm, '').match(/<td class="col3([\S\s]*?)<\/td>/gm).forEach(entry => totalLevelArray.push(entry.match(/(?<=<a[\s\S]*?>)[\s\S]*?(?=<\/a>)/g)[0]));
-            String(response).replace(/\n/gm, '').match(/<td class="col4([\S\s]*?)<\/td>/gm).forEach(entry => totalExperienceArray.push(entry.match(/(?<=<a[\s\S]*?>)[\s\S]*?(?=<\/a>)/g)[0]));
-
-            for (let i = 0; i < positionArray.length; i++) {
-                consolidatedArray.push({
-                    position: positionArray[i],
-                    name: nameArray[i],
-                    total_level: totalLevelArray[i],
-                    total_experience: totalExperienceArray[i]
-                })
-            }
-
-            res('success');
-        } catch (err) {
-            rej(err);
+        for (let i = 1; i <= 25; i++) {
+            pageArray.push({
+                position: "",
+                name: "",
+                total_level: "",
+                total_experience: ""
+            })
         }
-    })
+
+        String(response).replace(/\n/gm, '').match(/<td class="col1([\S\s]*?)<\/td>/gm).forEach((entry, index) => pageArray[index].position = entry.match(/(?<=<a[\s\S]*?>)[\s\S]*?(?=<\/a>)/g)[0].replace(/,/g, ''));
+        String(response).replace(/\n/gm, '').match(/<td class="col2([\S\s]*?)<\/td>/gm).forEach((entry, index) => pageArray[index].name = entry.match(/(?<=<img[\s\S]*?\/>)[\s\S]*?(?=<\/a>)/g)[0].replace(/,/g, ''));
+        String(response).replace(/\n/gm, '').match(/<td class="col3([\S\s]*?)<\/td>/gm).forEach((entry, index) => pageArray[index].total_level = entry.match(/(?<=<a[\s\S]*?>)[\s\S]*?(?=<\/a>)/g)[0].replace(/,/g, ''));
+        String(response).replace(/\n/gm, '').match(/<td class="col4([\S\s]*?)<\/td>/gm).forEach((entry, index) => pageArray[index].total_experience = entry.match(/(?<=<a[\s\S]*?>)[\s\S]*?(?=<\/a>)/g)[0].replace(/,/g, ''));
+
+        return pageArray;
+    } catch (error) {
+        return [];
+    }
+
 }
 
-async function writeFSWHiscores(table, count = 1) {
+export async function writeFSWHiscores(table, pageCount = 1) {
     return new Promise(async res => {
         try {
-            for (let i = 1; i <= count; i++) {
-                await getFSWHiscores(table, i);
-            }
-
-            if (consolidatedArray.length === 0) return;
-
-            let csv = "";
-
-            consolidatedArray.forEach(value => {
-                csv += `${value?.position},${value?.name},${value?.total_level},${value?.total_experience.replace(/,/g, '')}\n`;
-            })
-
-            fs.writeFileSync(`${outputPath}\\out\\${tableNames[table]}\\${tableNames[table]}_${fixedTime}.csv`, csv);
-
-            res(`Successfully generated file for ${tableNames[table]} @ ${fixedTime}`);
-        } catch (error) {
-            res(`Failed to generate file for ${tableNames[table]} @ ${fixedTime}`);
-        }
-
-        consolidatedArray.length = 0;
-    })
-
-}
-
-async function _write(count) {
-    return new Promise(async (res, rej) => {
-        try {
-            fixedTime = Date.now();
-            const response = [];
+            let consolidatedArray = [];
 
             tableNames.forEach(value => {
                 if (!fs.existsSync(`${outputPath}\\out`)) {
@@ -121,18 +85,38 @@ async function _write(count) {
                 }
             })
 
-            for (let i = 0; i < 28; i++) {
-                response.push(await writeFSWHiscores(i, count));
+            let i = 1;
+            let offset = 0;
+
+            delayLoop(async () => {
+                const result = await getFSWHiscores(table, i + offset);
+                if (result.pop()?.total_level === 99 && result[0]?.total_level < 200) i--; offset++;
+                consolidatedArray = [...consolidatedArray, ...result];
+            }, pageCount, 5000);
+
+            function delayLoop(fn = Function, count = 1, timeout = 5000) {
+                setTimeout(async () => {
+                    if (i <= count) {
+                        fn();
+                        i++;
+                        delayLoop(fn, count, timeout);
+                    } else {
+                        i = 0;
+                    }
+                }, timeout)
             }
 
-            res(response);
+            let csv = "";
+
+            consolidatedArray.forEach(value => {
+                csv += `${value?.position},${value?.name},${value?.total_level},${value?.total_experience}\n`;
+            })
+
+            if (consolidatedArray.length > 0) fs.writeFileSync(`${outputPath}\\out\\${tableNames[table]}\\${tableNames[table]}_${Date.now()}.csv`, csv);
+
+            res(`Successfully generated file for ${tableNames[table]} @ ${new Date()}`);
         } catch (error) {
-            rej(error);
+            res(`Failed to generate file for ${tableNames[table]} @ ${new Date()}`);
         }
     })
-
 }
-
-const response = await _write(4);
-
-console.log(response);
