@@ -95,4 +95,14 @@ async function _write() {
     }
 }
 
+tableNames.forEach(value => {
+    if (!fs.existsSync(`${basePath}\\out`)){
+        fs.mkdirSync(`${basePath}\\out`);
+    }
+
+    if (!fs.existsSync(`${basePath}\\out\\${value}`)){
+        fs.mkdirSync(`${basePath}\\out\\${value}`);
+    }
+})
+
 await _write();
