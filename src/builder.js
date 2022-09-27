@@ -1,4 +1,4 @@
-import fs from 'fs';
+import fs, { write } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -35,7 +35,8 @@ async function build(currentTimestamp) {
                                         timestamp: miniArr[1],
                                         rank: miniArr[2],
                                         name: miniArr[3],
-                                        experience: miniArr[4]
+                                        level: miniArr[4],
+                                        experience: miniArr[5]
                                     }
                                 }
 
@@ -70,3 +71,5 @@ export async function writeToJson(currentTimestamp) {
         console.log(`${basePath}\\data\\influxdb_${writeTimestamp}.json has been created`)
     })
 }
+
+await writeToJson(Date.now());
