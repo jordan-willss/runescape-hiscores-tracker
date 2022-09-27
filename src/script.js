@@ -7,6 +7,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const basePath = __dirname.slice(0, __dirname.lastIndexOf("\\"));
 
+// Edit this to change the output of the files
+// By default it is the root of the project (__dirname)
+const outputPath = basePath;
+
 const consolidatedArray = []
 
 let fixedTime;
@@ -82,7 +86,7 @@ async function writeFSWHiscores(table) {
         csv += `${value?.position},${value?.name},${value?.total_level},${value?.total_experience.replace(/,/g, '')}\n`;
     })
     
-    fs.writeFileSync(`${basePath}\\out\\${tableNames[table]}\\${tableNames[table]}_${fixedTime}.csv`, csv);
+    fs.writeFileSync(`${outputPath}\\out\\${tableNames[table]}\\${tableNames[table]}_${fixedTime}.csv`, csv);
 
     consolidatedArray.length = 0;
 }
@@ -96,12 +100,12 @@ async function _write() {
 }
 
 tableNames.forEach(value => {
-    if (!fs.existsSync(`${basePath}\\out`)){
-        fs.mkdirSync(`${basePath}\\out`);
+    if (!fs.existsSync(`${outputPath}\\out`)){
+        fs.mkdirSync(`${outputPath}\\out`);
     }
 
-    if (!fs.existsSync(`${basePath}\\out\\${value}`)){
-        fs.mkdirSync(`${basePath}\\out\\${value}`);
+    if (!fs.existsSync(`${outputPath}\\out\\${value}`)){
+        fs.mkdirSync(`${outputPath}\\out\\${value}`);
     }
 })
 
