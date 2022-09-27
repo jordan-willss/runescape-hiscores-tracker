@@ -5,11 +5,12 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "test": "node src/script.js"
+    "run": "cross-env node src/parser.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "cross-env": "^7.0.3",
     "node-fetch": "^3.2.10"
   }
 }
