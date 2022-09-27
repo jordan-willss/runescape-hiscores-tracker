@@ -74,11 +74,12 @@ async function getFSWHiscores(table, page) {
     }
 }
 
-async function writeFSWHiscores(table) {
-    await getFSWHiscores(table, 1);
-    await getFSWHiscores(table, 2);
-    await getFSWHiscores(table, 3);
-    await getFSWHiscores(table, 4);
+async function writeFSWHiscores(table, count = 1) {
+    for (let i = 1; i <= count; i++) {
+        await getFSWHiscores(table, i);
+    }
+
+    if (consolidatedArray.length === 0) return;
     
     let csv = "";
     
@@ -91,22 +92,22 @@ async function writeFSWHiscores(table) {
     consolidatedArray.length = 0;
 }
 
-async function _write() {
+async function _write(count) {
     fixedTime = Date.now();
 
+    tableNames.forEach(value => {
+        if (!fs.existsSync(`${outputPath}\\out`)){
+            fs.mkdirSync(`${outputPath}\\out`);
+        }
+    
+        if (!fs.existsSync(`${outputPath}\\out\\${value}`)){
+            fs.mkdirSync(`${outputPath}\\out\\${value}`);
+        }
+    })
+
     for(let i = 0; i < 28; i++) {
-        await writeFSWHiscores(i);
+        await writeFSWHiscores(i, count);
     }
 }
 
-tableNames.forEach(value => {
-    if (!fs.existsSync(`${outputPath}\\out`)){
-        fs.mkdirSync(`${outputPath}\\out`);
-    }
-
-    if (!fs.existsSync(`${outputPath}\\out\\${value}`)){
-        fs.mkdirSync(`${outputPath}\\out\\${value}`);
-    }
-})
-
-await _write();
+await _write(4);
