@@ -50,11 +50,12 @@ async function build(currentTimestamp) {
             });
 
             let wait = setInterval(() => {
+                console.log(`Build progress: ${entries / masterArr.length * 100}%`)
                 if (masterArr.length >= entries) {
                     res(masterArr);
                     clearInterval(wait);
                 }
-            }, 1000);
+            }, 100);
         } catch (error) {
             rej(err);
         }
