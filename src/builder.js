@@ -12,6 +12,7 @@ async function build(currentTimestamp) {
     return new Promise((res, rej) => {
         try {
             const masterArr = []
+            let masterStr = "";
             let entries = 0;
 
             fs.readdir(basePath, (err, dir) => {
@@ -20,8 +21,10 @@ async function build(currentTimestamp) {
                     fs.readdir(`${basePath}\\${folder}`, (err, files) => {
                         if (err) return;
                         files.forEach(file => {
+                            if (!file.match(/[\s\S]*.csv/g)) return;
                             const timestamp = file.slice(file.lastIndexOf('_') + 1).replace(/\.csv/g, '');
-                            if (currentTimestamp - 86400000 - parseInt(timestamp) > 0) return;
+                            // Removing for now just to build everything
+                            // if (currentTimestamp - 86400000 - parseInt(timestamp) > 0) return;
                             fs.readFile(`${basePath}\\${folder}\\${file}`, 'utf8', (err, contents) => {
                                 if (err) return;
 
@@ -40,8 +43,14 @@ async function build(currentTimestamp) {
                                     }
                                 }
 
+                                const generateLine = (miniArr) => {
+                                    return `${miniArr[0]},rank=${miniArr[2]},level=${miniArr[4]},experience=${miniArr[5]} name="${miniArr[3]}" ${miniArr[1]}000000\n`;
+                                }
+
                                 for (let i = 0; i < arr.length; i++) {
-                                    masterArr.push(generateObj(`${folder},${timestamp},${arr[i]}`.split(',')));
+                                    const miniArr = `${folder},${timestamp},${arr[i]}`.split(',');
+                                    masterArr.push(generateObj(miniArr));
+                                    masterStr += generateLine(miniArr);
                                 }
                             })
                         });
@@ -52,7 +61,7 @@ async function build(currentTimestamp) {
             let wait = setInterval(() => {
                 console.log(`Build progress: ${entries / masterArr.length * 100}%`)
                 if (masterArr.length >= entries) {
-                    res(masterArr);
+                    res([masterArr, masterStr.slice(0, -2)]);
                     clearInterval(wait);
                 }
             }, 100);
@@ -63,7 +72,8 @@ async function build(currentTimestamp) {
 }
 
 export async function writeToJson(currentTimestamp) {
-    const array = await build(currentTimestamp);
+    const response = await build(currentTimestamp);
+    const array = response[0];
     const writeTimestamp = Date.now();
     if (!fs.existsSync(`${basePath}\\data`)) {
         fs.mkdirSync(`${basePath}\\data`);
@@ -73,4 +83,17 @@ export async function writeToJson(currentTimestamp) {
     })
 }
 
+export async function writeToLines(currentTimestamp) {
+    const response = await build(currentTimestamp);
+    const lines = response[1];
+    const writeTimestamp = Date.now();
+    if (!fs.existsSync(`${basePath}\\data`)) {
+        fs.mkdirSync(`${basePath}\\data`);
+    }
+    fs.writeFile(`${basePath}\\data\\influxdb_${writeTimestamp}.line`, lines, () => {
+        console.log(`${basePath}\\data\\influxdb_${writeTimestamp}.line has been created`)
+    })
+}
+
 await writeToJson(Date.now());
+await writeToLines(Date.now());

@@ -2,3 +2,4 @@ node_modules
 
 **.csv
 out/**/**.json
+out/**/**.line
