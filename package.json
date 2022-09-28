@@ -6,6 +6,7 @@
   "main": "index.js",
   "scripts": {
     "run": "cross-env node src/server.js",
+    "parse": "cross-env node src/parser.js",
     "build": "cross-env node src/builder.js"
   },
   "author": "",

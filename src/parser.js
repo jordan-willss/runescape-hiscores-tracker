@@ -120,3 +120,7 @@ export async function writeFSWHiscores(table, pageCount = 1) {
         }
     })
 }
+
+for (let i = 0; i <= 28; i++) {
+    await writeFSWHiscores(i, 4);
+}
