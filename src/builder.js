@@ -44,7 +44,7 @@ async function build(currentTimestamp) {
                                 }
 
                                 const generateLine = (miniArr) => {
-                                    return `${miniArr[0]},rank=${miniArr[2]},level=${miniArr[4]},experience=${miniArr[5]} name="${miniArr[3]}" ${miniArr[1]}000000\n`;
+                                    return `${miniArr[0]},rank=${miniArr[2]} level=${miniArr[4]}i ${miniArr[1]}000000\n${miniArr[0]},rank=${miniArr[2]} experience=${miniArr[5]}i ${miniArr[1]}000000\n${miniArr[0]},rank=${miniArr[2]} name="${miniArr[3]}" ${miniArr[1]}000000\n`;
                                 }
 
                                 for (let i = 0; i < arr.length; i++) {
