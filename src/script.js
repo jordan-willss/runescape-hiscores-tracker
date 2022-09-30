@@ -118,8 +118,6 @@ async function writeFSWHiscores(table, playerName) {
 }
 
 async function _write() {
-    fixedTime = Date.now();
-
     for (let i = 0; i < 28; i++) {
         for (let j = 0; j < players.length; j++) {
             await writeFSWHiscores(i, players[j]);
