@@ -96,9 +96,12 @@ async function getFSWHiscoresForPlayer(playerName) {
     })
 }
 
-console.log(getFSWHiscoresForPlayer(players[0]));
+function timeout(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 async function writeFSWHiscores(table, playerName) {
+    await timeout(5000);
     await getFSWHiscoresForPlayer(table, playerName);
 
     return new Promise((res, rej) => {
@@ -114,6 +117,9 @@ async function writeFSWHiscores(table, playerName) {
                 writeApi.close().then(() => {
                     res(`Data has been successfully written to Influx for ${playerName} for table ${INFLUX_BUCKET[table]}`);
                 })
+
+                CONSOLIDATED_ARRAY.length = 0;
+                res(`Data has been successfully written to Influx for ${playerName} for table ${INFLUX_BUCKET[table]}`);
             } catch (error) {
                 CONSOLIDATED_ARRAY.length = 0;
                 rej(`Data failed to be written to Influx for ${playerName} for table ${INFLUX_BUCKET[table]}`)
@@ -122,12 +128,10 @@ async function writeFSWHiscores(table, playerName) {
             rej(`Consolidated array contained no information for table ${INFLUX_BUCKET[table]} for ${playerName}`);
         }
     })
-    
+
 }
 
 async function _write() {
-    fixedTime = Date.now();
-
     for (let i = 0; i < 28; i++) {
         for (let j = 0; j < players.length; j++) {
             await writeFSWHiscores(i, players[j]);
