@@ -84,7 +84,12 @@ async function getFSWHiscoresForPlayer(table, playerName) {
     }
 }
 
+function timeout(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 async function writeFSWHiscores(table, playerName) {
+    await timeout(5000);
     await getFSWHiscoresForPlayer(table, playerName);
 
     if (consolidatedArray.length > 0) {
@@ -96,7 +101,7 @@ async function writeFSWHiscores(table, playerName) {
 
         writeApi.writePoints([point1, point2, point3]);
         writeApi.close().then(() => {
-            console.log('WRITE FINISHED');
+            console.log(`${playerName} - ${INFLUX_BUCKET[table]}`);
         })
 
         consolidatedArray.length = 0;
@@ -115,6 +120,8 @@ async function _write() {
 
 }
 
+
+await _write();
 
 setInterval(() => async function(){
         await _write();
