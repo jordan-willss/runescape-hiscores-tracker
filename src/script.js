@@ -1,5 +1,7 @@
 import fetch from 'node-fetch';
 import { InfluxDB, Point } from '@influxdata/influxdb-client';
+import * as jsdom from "jsdom";
+
 
 
 const CONSOLIDATED_ARRAY = []
@@ -49,39 +51,52 @@ const players = [
 
 const influxDB = new InfluxDB({ url: INFLUX_URL, token: INFLUX_TOKEN });
 
-async function getFSWHiscoresForPlayer(table, playerName) {
+async function getFSWHiscoresForPlayer(playerName) {
     return new Promise(async (res, rej) => {
-        const response = await fetch(`https://secure.runescape.com/m=hiscore_seasonal/ranking?table=${table}&category_type=0&time_filter=0&date=1664536273844&user=${encodeURIComponent(playerName)}`).then(res => res.text());
-
-        const positionArray = []
-        const nameArray = []
-        const totalLevelArray = []
-        const totalExperienceArray = []
-
         try {
-            String(response).replace(/\n/gm, '').match(/<td class="col1([\S\s]*?)<\/td>/gm).forEach(entry => positionArray.push(entry.match(/(?<=<a[\s\S]*?>)[\s\S]*?(?=<\/a>)/g)[0]));
-            String(response).replace(/\n/gm, '').match(/<td class="col2([\S\s]*?)<\/td>/gm).forEach(entry => nameArray.push(entry.match(/(?<=<img[\s\S]*?\/>)[\s\S]*?(?=<\/a>)/g)[0]));
-            String(response).replace(/\n/gm, '').match(/<td class="col3([\S\s]*?)<\/td>/gm).forEach(entry => totalLevelArray.push(entry.match(/(?<=<a[\s\S]*?>)[\s\S]*?(?=<\/a>)/g)[0]));
-            String(response).replace(/\n/gm, '').match(/<td class="col4([\S\s]*?)<\/td>/gm).forEach(entry => totalExperienceArray.push(entry.match(/(?<=<a[\s\S]*?>)[\s\S]*?(?=<\/a>)/g)[0]));
-
-            for (let i = 0; i < positionArray.length; i++) {
-                if (nameArray[i] === playerName) {
-                    CONSOLIDATED_ARRAY.push({
-                        position: positionArray[i],
-                        name: nameArray[i],
-                        total_level: totalLevelArray[i],
-                        total_experience: totalExperienceArray[i]
-                    });
-                    break;
+            const response = await fetch(`https://secure.runescape.com/m=hiscore_seasonal/compare?user1=${encodeURIComponent(playerName)}`)
+            .then(res => res.text())
+            .then(data => data);
+    
+            const HTML = new jsdom.JSDOM(response);
+    
+            const ROWS = HTML.window.document.querySelector('.headerBgLeft').rows;
+    
+            for (let i = 1; i < ROWS.length; i++) {
+                const CELLS = ROWS[i].cells;
+                const row = [i - 1];
+    
+                for (let j = 0; j < CELLS.length; j++) {
+                    row.push(CELLS[j].innerHTML.replace(/<[\s\S]*?>/g, '').replace(/,/g, ''));
                 }
+    
+                if (row[1] === '--') row[1] = "20000";
+                if (row[2] === "--") row[2] = "0";
+                if (row[3] === "--") row[3] = "1";
+    
+                CONSOLIDATED_ARRAY.push(row);
             }
 
-            res(`Information successfully obtained for ${playerName} for table ${INFLUX_BUCKET[table]}`);
-        } catch (err) {
-            rej(`Information failed to obtain for ${playerName} for table ${INFLUX_BUCKET[table]}`);
+            // for (let i = 0; i < positionArray.length; i++) {
+            //     if (nameArray[i] === playerName) {
+            //         CONSOLIDATED_ARRAY.push({
+            //             position: positionArray[i],
+            //             name: nameArray[i],
+            //             total_level: totalLevelArray[i],
+            //             total_experience: totalExperienceArray[i]
+            //         });
+            //         break;
+            //     }
+            // }
+
+            res(`Information successfully obtained for ${playerName}}`);
+        } catch (error) {
+            rej({ message: `Information failed to obtain for ${playerName}}`, error });
         }
     })
 }
+
+console.log(getFSWHiscoresForPlayer(players[0]));
 
 async function writeFSWHiscores(table, playerName) {
     await getFSWHiscoresForPlayer(table, playerName);
@@ -89,18 +104,16 @@ async function writeFSWHiscores(table, playerName) {
     return new Promise((res, rej) => {
         if (CONSOLIDATED_ARRAY.length > 0) {
             try {
-                let writeApi = influxDB.getWriteApi(INFLUX_ORG, INFLUX_BUCKET[table]);
-                let point1 = new Point('player').tag('name', CONSOLIDATED_ARRAY[0].name).floatField('level', CONSOLIDATED_ARRAY[0].total_level);
-                let point2 = new Point('player').tag('name', CONSOLIDATED_ARRAY[0].name).floatField('experience', CONSOLIDATED_ARRAY[0].total_experience.replace(/,/g, ''));
-                let point3 = new Point('player').tag('name', CONSOLIDATED_ARRAY[0].name).floatField('position', CONSOLIDATED_ARRAY[0].position);
-        
+                const writeApi = influxDB.getWriteApi(INFLUX_ORG, INFLUX_BUCKET[table]);
+                const point1 = new Point('player').tag('name', CONSOLIDATED_ARRAY[0].name).floatField('level', CONSOLIDATED_ARRAY[0].total_level);
+                const point2 = new Point('player').tag('name', CONSOLIDATED_ARRAY[0].name).floatField('experience', CONSOLIDATED_ARRAY[0].total_experience.replace(/,/g, ''));
+                const point3 = new Point('player').tag('name', CONSOLIDATED_ARRAY[0].name).floatField('position', CONSOLIDATED_ARRAY[0].position);
+                CONSOLIDATED_ARRAY.length = 0;
+
                 writeApi.writePoints([point1, point2, point3]);
                 writeApi.close().then(() => {
-                    console.log('WRITE FINISHED');
+                    res(`Data has been successfully written to Influx for ${playerName} for table ${INFLUX_BUCKET[table]}`);
                 })
-        
-                CONSOLIDATED_ARRAY.length = 0;
-                res(`Data has been successfully written to Influx for ${playerName} for table ${INFLUX_BUCKET[table]}`);
             } catch (error) {
                 CONSOLIDATED_ARRAY.length = 0;
                 rej(`Data failed to be written to Influx for ${playerName} for table ${INFLUX_BUCKET[table]}`)
@@ -123,6 +136,6 @@ async function _write() {
 }
 
 
-setInterval(() => async function () {
-    await _write();
-}, players.length * 3000);
+// setInterval(() => async function () {
+//     await _write();
+// }, players.length * 3000);
