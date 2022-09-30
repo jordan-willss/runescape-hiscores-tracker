@@ -99,7 +99,7 @@ async function getFSWHiscoresByName(table, player) {
 export async function writeFSWHiscores(table, pageCount = 1) {
     return new Promise(async res => {
         try {
-            let consolidatedArray = [];
+            let CONSOLIDATED_ARRAY = [];
 
             tableNames.forEach(value => {
                 if (!fs.existsSync(`${outputPath}\\out`)) {
@@ -117,7 +117,7 @@ export async function writeFSWHiscores(table, pageCount = 1) {
             delayLoop(async () => {
                 const result = await getFSWHiscores(table, i + offset);
                 if (result.pop()?.total_level === 99 && result[0]?.total_level < 200) i--; offset++;
-                consolidatedArray = [...consolidatedArray, ...result];
+                CONSOLIDATED_ARRAY = [...CONSOLIDATED_ARRAY, ...result];
             }, pageCount, 5000);
 
             function delayLoop(fn = Function, count = 1, timeout = 5000) {
@@ -134,11 +134,11 @@ export async function writeFSWHiscores(table, pageCount = 1) {
 
             let csv = "";
 
-            consolidatedArray.forEach(value => {
+            CONSOLIDATED_ARRAY.forEach(value => {
                 csv += `${value?.position},${value?.name},${value?.total_level},${value?.total_experience}\n`;
             })
 
-            if (consolidatedArray.length > 0) fs.writeFileSync(`${outputPath}\\out\\${tableNames[table]}\\${tableNames[table]}_${Date.now()}.csv`, csv);
+            if (CONSOLIDATED_ARRAY.length > 0) fs.writeFileSync(`${outputPath}\\out\\${tableNames[table]}\\${tableNames[table]}_${Date.now()}.csv`, csv);
 
             res(`Successfully generated file for ${tableNames[table]} @ ${new Date()}`);
         } catch (error) {
