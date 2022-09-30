@@ -1,5 +1,9 @@
 node_modules
 
+<<<<<<< HEAD
 **.csv
 out/**/**.json
 out/**/**.line
+=======
+**.csv
+>>>>>>> 55e4e4b89345b1ac7394c54e50da288bf77a36d0

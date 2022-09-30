@@ -3,17 +3,32 @@
   "version": "1.0.0",
   "description": "",
   "type": "module",
+<<<<<<< HEAD
   "main": "index.js",
   "scripts": {
     "run": "cross-env node src/server.js",
     "parse": "cross-env node src/parser.js",
     "build": "cross-env node src/builder.js"
+=======
+  "main": "script.js",
+  "scripts": {
+    "main": "node src/script.js"
+>>>>>>> 55e4e4b89345b1ac7394c54e50da288bf77a36d0
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
+<<<<<<< HEAD
     "cross-env": "^7.0.3",
     "node-cron": "^3.0.2",
     "node-fetch": "^3.2.10"
+=======
+    "@influxdata/influxdb-client": "^1.30.0",
+    "@influxdata/influxdb-client-apis": "^1.30.0",
+    "node-fetch": "^3.2.10"
+  },
+  "devDependencies": {
+    "@types/node": "^18.7.23"
+>>>>>>> 55e4e4b89345b1ac7394c54e50da288bf77a36d0
   }
 }
