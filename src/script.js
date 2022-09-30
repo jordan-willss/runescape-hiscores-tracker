@@ -1,15 +1,18 @@
 import fetch from 'node-fetch';
 import {InfluxDB, Point} from '@influxdata/influxdb-client'
+import {write} from "fs";
 
 
 const consolidatedArray = []
 
 let fixedTime;
 
-const INFLUX_URL = 'http://192.168.0.23:8086/';
-const INFLUX_TOKEN = 'iCi9NAG_KNN5xEneM4LCH_c8vj5lIeT1db00joqix9KfUZ3He_16d7LSN4i3o6oG88qwxNYOnK2ASsk2oqoxSQ==';
-const INFLUX_ORG = '0d5dfe51898d0c79';
-const INFLUX_BUCKET = [
+var minutes = 0.1, intveral = minutes * 60 * 1000;
+
+const INFLUX_URL='http://192.168.0.23:8086/';
+const INFLUX_TOKEN='iCi9NAG_KNN5xEneM4LCH_c8vj5lIeT1db00joqix9KfUZ3He_16d7LSN4i3o6oG88qwxNYOnK2ASsk2oqoxSQ==';
+const INFLUX_ORG='0d5dfe51898d0c79';
+const INFLUX_BUCKET= [
     'overall',
     'attack',
     'defence',
@@ -76,7 +79,7 @@ async function getFSWHiscoresForPlayer(table, playerName) {
                 break;
             }
         }
-    } catch (err) {
+    } catch(err) {
 
     }
 }
@@ -103,36 +106,16 @@ async function writeFSWHiscores(table, playerName) {
 async function _write() {
     fixedTime = Date.now();
 
-    let i = 0;
-    let j = 0;
-    delayLoop(async () => {
-        delayLoop2(async () => {
+
+    for(let i = 0; i < 28; i++) {
+        for (let j = 0; j < players.length; j++) {
             await writeFSWHiscores(i, players[j]);
-        }, players.length, 3000);
-    }, 28, 3000 * players.length);
-
-    function delayLoop(fn = Function, count = 1, timeout = 5000) {
-        setTimeout(async () => {
-            if (i <= count) {
-                fn();
-                i++;
-                delayLoop(fn, count, timeout);
-            }
-        }, timeout)
+        }
     }
 
-    function delayLoop2(fn = Function, count = 1, timeout = 5000) {
-        setTimeout(async () => {
-            if (j <= count) {
-                fn();
-                j++;
-                delayLoop2(fn, count, timeout);
-            }
-        }, timeout)
-    }
 }
 
 
-setInterval(async () => {
-    await _write();
-}, 3000);
+setInterval(() => async function(){
+        await _write();
+    }, players.length * 3000);
