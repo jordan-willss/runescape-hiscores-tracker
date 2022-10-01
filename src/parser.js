@@ -1,18 +1,15 @@
 import fetch from 'node-fetch';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { InfluxDB, Point } from '@influxdata/influxdb-client';
+import * as jsdom from "jsdom";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const basePath = __dirname.slice(0, __dirname.lastIndexOf("\\"));
 
-// Edit this to change the output of the files
-// By default it is the root of the project (__dirname)
-const outputPath = basePath;
 
-const tableNames = [
-    'overall',
+const CONSOLIDATED_ARRAY = []
+
+const INFLUX_URL = 'http://192.168.0.23:8086/';
+const INFLUX_TOKEN = 'iCi9NAG_KNN5xEneM4LCH_c8vj5lIeT1db00joqix9KfUZ3He_16d7LSN4i3o6oG88qwxNYOnK2ASsk2oqoxSQ==';
+const INFLUX_ORG = '0d5dfe51898d0c79';
+const INFLUX_BUCKET = [
     'attack',
     'defence',
     'strength',
@@ -40,167 +37,141 @@ const tableNames = [
     'dungeoneering',
     'divination',
     'invention',
-    'archaeology'
+    'archaeology',
+    'overall',
+    'questPoints'
+];
+
+const players = [
+    'FSW GammaS',
+    'FSWCardinal',
+    'fsw dendofy',
+    'Doddlert',
+    'ToastieFox',
+    'FSW Ridings',
+    'goatmooo'
 ]
 
-async function getFSWHiscores(table, page) {
-    const response = await fetch(`https://secure.runescape.com/m=hiscore_seasonal/ranking?category_type=0&table=${table}&time_filter=0&date=${Date.now()}&page=${page}`).then(res => res.text()).then(data => data);
+const influxDB = new InfluxDB({ url: INFLUX_URL, token: INFLUX_TOKEN });
 
-    try {
-        const pageArray = []
+async function getFSWHiscoresForPlayer(playerName) {
 
-        for (let i = 1; i <= 25; i++) {
-            pageArray.push({
-                position: "",
-                name: "",
-                total_level: "",
-                total_experience: ""
-            })
-        }
+    CONSOLIDATED_ARRAY.length = 0;
 
-        String(response).replace(/\n/gm, '').match(/<td class="col1([\S\s]*?)<\/td>/gm).forEach((entry, index) => pageArray[index].position = entry.match(/(?<=<a[\s\S]*?>)[\s\S]*?(?=<\/a>)/g)[0].replace(/,/g, ''));
-        String(response).replace(/\n/gm, '').match(/<td class="col2([\S\s]*?)<\/td>/gm).forEach((entry, index) => pageArray[index].name = entry.match(/(?<=<img[\s\S]*?\/>)[\s\S]*?(?=<\/a>)/g)[0].replace(/,/g, ''));
-        String(response).replace(/\n/gm, '').match(/<td class="col3([\S\s]*?)<\/td>/gm).forEach((entry, index) => pageArray[index].total_level = entry.match(/(?<=<a[\s\S]*?>)[\s\S]*?(?=<\/a>)/g)[0].replace(/,/g, ''));
-        String(response).replace(/\n/gm, '').match(/<td class="col4([\S\s]*?)<\/td>/gm).forEach((entry, index) => pageArray[index].total_experience = entry.match(/(?<=<a[\s\S]*?>)[\s\S]*?(?=<\/a>)/g)[0].replace(/,/g, ''));
-
-        return pageArray;
-    } catch (error) {
-        return [];
-    }
-}
-
-async function getFSWHiscoresByName(table, player) {
-    const response = await fetch(`https://secure.runescape.com/m=hiscore_seasonal/ranking?category_type=0&table=${table}&time_filter=0&date=${Date.now()}&user=${player.replace(/ /g, '+')}`).then(res => res.text()).then(data => data);
-    try {
-        if (String(response).match(/was not found in the [a-zA-Z]*? table/gm)) return [];
-
-        const pageArray = []
-
-        for (let i = 1; i <= 25; i++) {
-            pageArray.push({
-                position: "",
-                name: "",
-                total_level: "",
-                total_experience: ""
-            })
-        }
-
-        String(response).replace(/\n/gm, '').match(/<td class="col1([\S\s]*?)<\/td>/gm).forEach((entry, index) => pageArray[index].position = entry.match(/(?<=<a[\s\S]*?>)[\s\S]*?(?=<\/a>)/g)[0].replace(/,/g, ''));
-        String(response).replace(/\n/gm, '').match(/<td class="col2([\S\s]*?)<\/td>/gm).forEach((entry, index) => pageArray[index].name = entry.match(/(?<=<img[\s\S]*?\/>)[\s\S]*?(?=<\/a>)/g)[0].replace(/,/g, ''));
-        String(response).replace(/\n/gm, '').match(/<td class="col3([\S\s]*?)<\/td>/gm).forEach((entry, index) => pageArray[index].total_level = entry.match(/(?<=<a[\s\S]*?>)[\s\S]*?(?=<\/a>)/g)[0].replace(/,/g, ''));
-        String(response).replace(/\n/gm, '').match(/<td class="col4([\S\s]*?)<\/td>/gm).forEach((entry, index) => pageArray[index].total_experience = entry.match(/(?<=<a[\s\S]*?>)[\s\S]*?(?=<\/a>)/g)[0].replace(/,/g, ''));
-
-        return pageArray;
-    } catch (error) {
-        return [];
-    }
-}
-
-export async function writeFSWHiscores(table, pageCount = 1) {
-    return new Promise(async res => {
+    return new Promise(async (res, rej) => {
         try {
-            let CONSOLIDATED_ARRAY = [];
+            let response = await fetch(`https://apps.runescape.com/runemetrics/profile?user=${encodeURIComponent(playerName)}`)
+                .then(res => res.text())
+                .then(data => data);
 
-            tableNames.forEach(value => {
-                if (!fs.existsSync(`${outputPath}\\out`)) {
-                    fs.mkdirSync(`${outputPath}\\out`);
-                }
+            let player = JSON.parse(response);
 
-                if (!fs.existsSync(`${outputPath}\\out\\${value}`)) {
-                    fs.mkdirSync(`${outputPath}\\out\\${value}`);
-                }
+            let skills = [];
+            let overallLevel = 0;
+            let overallXp = 0;
+            let overallId = INFLUX_BUCKET.length - 2;
+
+            player.skillvalues.forEach((skill) => {
+                skills.push(skill);
+            });
+
+
+            skills.forEach((skill) => {
+                skill.xp = Math.floor(skill.xp / 10);
+
+                overallLevel += skill.level;
+                overallXp += skill.xp;
+
+                CONSOLIDATED_ARRAY.push(skill);
             })
 
-            let i = 1;
-            let offset = 0;
+            CONSOLIDATED_ARRAY.push({
+                level: overallLevel,
+                xp: overallXp,
+                id: overallId
+            });
 
-            delayLoop(async () => {
-                const result = await getFSWHiscores(table, i + offset);
-                if (result.pop()?.total_level === 99 && result[0]?.total_level < 200) i--; offset++;
-                CONSOLIDATED_ARRAY = [...CONSOLIDATED_ARRAY, ...result];
-            }, pageCount, 5000);
+            response = await fetch(`https://apps.runescape.com/runemetrics/quests?user=${encodeURIComponent(playerName)}`)
+                .then(res => res.text())
+                .then(data => data);
 
-            function delayLoop(fn = Function, count = 1, timeout = 5000) {
-                setTimeout(async () => {
-                    if (i <= count) {
-                        fn();
-                        i++;
-                        delayLoop(fn, count, timeout);
-                    } else {
-                        i = 0;
-                    }
-                }, timeout)
-            }
+            let questPoints = 0;
 
-            let csv = "";
+            let quests = JSON.parse(response).quests;
 
-            CONSOLIDATED_ARRAY.forEach(value => {
-                csv += `${value?.position},${value?.name},${value?.total_level},${value?.total_experience}\n`;
-            })
+            quests.forEach((quest) => {
+                if (quest.status === 'COMPLETED') {
+                    questPoints += quest.questPoints;
+                }
+            });
 
-            if (CONSOLIDATED_ARRAY.length > 0) fs.writeFileSync(`${outputPath}\\out\\${tableNames[table]}\\${tableNames[table]}_${Date.now()}.csv`, csv);
+            CONSOLIDATED_ARRAY.push({
+                questPoints: questPoints,
+                id: INFLUX_BUCKET.length - 1
+            });
 
-            res(`Successfully generated file for ${tableNames[table]} @ ${new Date()}`);
+            console.log(questPoints)
+
+
+            res(`Information successfully obtained for ${playerName}`);
         } catch (error) {
-            res(`Failed to generate file for ${tableNames[table]} @ ${new Date()}`);
+            res({ message: `Information failed to obtain for ${playerName}`, error });
         }
     })
 }
 
-export async function writeFSWHiscoresByName(player) {
-    return new Promise(async res => {
-        try {
-            if (!fs.existsSync(`${outputPath}\\out`)) {
-                fs.mkdirSync(`${outputPath}\\out`);
-            }
+function timeout(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
 
-            if (!fs.existsSync(`${outputPath}\\out\\${player.replace(/ /g, '_')}`)) {
-                fs.mkdirSync(`${outputPath}\\out\\${player.replace(/ /g, '_')}`);
-            }
+async function writeFSWHiscores(playerName) {
+    await getFSWHiscoresForPlayer(playerName);
 
-            let csv = "";
-            let i = 0;
+    if (CONSOLIDATED_ARRAY.length > 0) {
 
-            delayLoop(async () => {
-                const result = await getFSWHiscoresByName(i, player);
-                result.forEach(entry => {
-                    if (entry?.name === player) {
-                        csv += `${entry?.position},${entry?.name},${entry?.total_level},${entry?.total_experience}\n`;
-                    }
+        for (let i = 0; i < CONSOLIDATED_ARRAY.length - 1; i++) {
+            await timeout(10);
+            try {
+                let skill = CONSOLIDATED_ARRAY[i];
+
+                const writeApi = influxDB.getWriteApi(INFLUX_ORG, INFLUX_BUCKET[skill.id]);
+                const point1 = new Point('player').tag('name', playerName).floatField('level', skill.level);
+                const point2 = new Point('player').tag('name', playerName).floatField('experience', skill.xp);
+
+                writeApi.writePoints([point1, point2]);
+                writeApi.close().then(() => {
+                    console.log(`Data has been successfully written to Influx for ${playerName} for table ${INFLUX_BUCKET[skill.id]}`);
                 })
-            }, 28, 5000);
-
-            function delayLoop(fn = Function, count = 1, timeout = 5000) {
-                setTimeout(async () => {
-                    if (i <= count) {
-                        fn();
-                        i++;
-                        delayLoop(fn, count, timeout);
-                    }
-                }, timeout)
+            } catch (error) {
             }
-
-            let fsWrite = setInterval(() => {
-                if (i >= 28) {
-                    fs.writeFileSync(`${outputPath}\\out\\${player.replace(/ /g, '_')}\\${player.replace(/ /g, '+')}_${Date.now()}.csv`, csv);
-                    clearInterval(fsWrite);
-                    res(`Successfully generated file for ${player} @ ${new Date()}`);
-                }
-            }, 100)
-        } catch (error) {
-            res(`Failed to generate file for ${player} @ ${new Date()}`);
         }
-    })
+
+        try {
+            let skill = CONSOLIDATED_ARRAY[CONSOLIDATED_ARRAY.length - 1];
+
+            const writeApi = influxDB.getWriteApi(INFLUX_ORG, INFLUX_BUCKET[skill.id]);
+            const point1 = new Point('player').tag('name', playerName).floatField('questPoints', skill.questPoints);
+
+            writeApi.writePoints([point1]);
+            writeApi.close().then(() => {
+                console.log(`Data has been successfully written to Influx for ${playerName} for table ${INFLUX_BUCKET[skill.id]}`);
+            })
+        } catch (error) {
+        }
+
+    }
+
 }
 
-// for (let i = 0; i <= 28; i++) {
-//     await writeFSWHiscores(i, 4);
-// }
+async function _write() {
+    for (let j = 0; j < players.length; j++) {
+        await writeFSWHiscores(players[j]);
+    }
+}
 
-const response1 = await writeFSWHiscoresByName("fsw dendofy");
-const response2 = await writeFSWHiscoresByName("FSW GammaS");
-const response3 = await writeFSWHiscoresByName("FSWCardinal");
+while (1 === 1) {
+    await timeout(5000);
+    await _write();
+}
 
-console.log(response1);
-console.log(response2);
-console.log(response3);
+// await getFSWHiscoresForPlayer('FSW GammaS')
